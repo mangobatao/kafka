@@ -49,6 +49,7 @@ object Defaults {
   val Compact = kafka.server.Defaults.LogCleanupPolicy
   val UncleanLeaderElectionEnable = kafka.server.Defaults.UncleanLeaderElectionEnable
   val MinInSyncReplicas = kafka.server.Defaults.MinInSyncReplicas
+  val QuorumAckReplicas = kafka.server.Defaults.QuorumAckReplicas
   val CompressionType = kafka.server.Defaults.CompressionType
   val PreAllocateEnable = kafka.server.Defaults.LogPreAllocateEnable
   val MessageFormatVersion = kafka.server.Defaults.LogMessageFormatVersion
@@ -81,6 +82,7 @@ case class LogConfig(props: java.util.Map[_, _]) extends AbstractConfig(LogConfi
   val delete = getList(LogConfig.CleanupPolicyProp).asScala.map(_.toLowerCase(Locale.ROOT)).contains(LogConfig.Delete)
   val uncleanLeaderElectionEnable = getBoolean(LogConfig.UncleanLeaderElectionEnableProp)
   val minInSyncReplicas = getInt(LogConfig.MinInSyncReplicasProp)
+  val quorumAckReplicas = getInt(LogConfig.QuorumAckReplicasProp)
   val compressionType = getString(LogConfig.CompressionTypeProp).toLowerCase(Locale.ROOT)
   val preallocate = getBoolean(LogConfig.PreAllocateEnableProp)
   val messageFormatVersion = ApiVersion(getString(LogConfig.MessageFormatVersionProp))
@@ -119,6 +121,7 @@ object LogConfig {
   val CleanupPolicyProp = "cleanup.policy"
   val UncleanLeaderElectionEnableProp = "unclean.leader.election.enable"
   val MinInSyncReplicasProp = "min.insync.replicas"
+  val QuorumAckReplicasProp = "quorum.ack.replicas"
   val CompressionTypeProp = "compression.type"
   val PreAllocateEnableProp = "preallocate"
   val MessageFormatVersionProp = "message.format.version"
@@ -187,6 +190,7 @@ object LogConfig {
   val UncleanLeaderElectionEnableDoc = "Indicates whether to enable replicas not in the ISR set to be elected as" +
     " leader as a last resort, even though doing so may result in data loss"
   val MinInSyncReplicasDoc = KafkaConfig.MinInSyncReplicasDoc
+  val QuorumAckReplicasDoc = KafkaConfig.QuorumAckReplicasDoc
   val CompressionTypeDoc = "Specify the final compression type for a given topic. This configuration accepts the " +
     "standard compression codecs ('gzip', 'snappy', lz4). It additionally accepts 'uncompressed' which is equivalent to " +
     "no compression; and 'producer' which means retain the original compression codec set by the producer."
@@ -281,6 +285,8 @@ object LogConfig {
         MEDIUM, UncleanLeaderElectionEnableDoc, KafkaConfig.UncleanLeaderElectionEnableProp)
       .define(MinInSyncReplicasProp, INT, Defaults.MinInSyncReplicas, atLeast(1), MEDIUM, MinInSyncReplicasDoc,
         KafkaConfig.MinInSyncReplicasProp)
+      .define(QuorumAckReplicasProp, INT, Defaults.QuorumAckReplicas, MEDIUM, QuorumAckReplicasDoc,
+        KafkaConfig.QuorumAckReplicasProp)
       .define(CompressionTypeProp, STRING, Defaults.CompressionType, in(BrokerCompressionCodec.brokerCompressionOptions:_*),
         MEDIUM, CompressionTypeDoc, KafkaConfig.CompressionTypeProp)
       .define(PreAllocateEnableProp, BOOLEAN, Defaults.PreAllocateEnable, MEDIUM, PreAllocateEnableDoc,

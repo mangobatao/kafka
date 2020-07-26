@@ -986,6 +986,19 @@ public class Protocol {
     public static final Schema[] DELETE_TOPICS_REQUEST = new Schema[] {DELETE_TOPICS_REQUEST_V0};
     public static final Schema[] DELETE_TOPICS_RESPONSE = new Schema[] {DELETE_TOPICS_RESPONSE_V0};
 
+    /* LogEndOffsetFetch api */
+    public static final Schema LOG_END_OFFSET_FETCH_REQUEST_V0 = new Schema(
+        new Field("controller_id", INT32, "The controller id."),
+        new Field("controller_epoch", INT32, "The controller epoch."),
+        new Field("topic", STRING, "The topic."),
+        new Field("partition", INT32, "The partition."));
+    public static final Schema LOG_END_OFFSET_FETCH_RESPONSE_V0 = new Schema(
+        new Field("log_end_offset", INT64, "Log end offset."),
+        new Field("error_code", INT16, "Error code."));
+
+    public static final Schema[] LOG_END_OFFSET_FETCH_REQUEST = new Schema[] {LOG_END_OFFSET_FETCH_REQUEST_V0};
+    public static final Schema[] LOG_END_OFFSET_FETCH_RESPONSE = new Schema[] {LOG_END_OFFSET_FETCH_RESPONSE_V0};
+
     /* an array of all requests and responses with all schema versions; a null value in the inner array means that the
      * particular version is not supported */
     public static final Schema[][] REQUESTS = new Schema[ApiKeys.MAX_API_KEY + 1][];
@@ -1017,6 +1030,7 @@ public class Protocol {
         REQUESTS[ApiKeys.API_VERSIONS.id] = API_VERSIONS_REQUEST;
         REQUESTS[ApiKeys.CREATE_TOPICS.id] = CREATE_TOPICS_REQUEST;
         REQUESTS[ApiKeys.DELETE_TOPICS.id] = DELETE_TOPICS_REQUEST;
+        REQUESTS[ApiKeys.LOG_END_OFFSET_FETCH.id] = LOG_END_OFFSET_FETCH_REQUEST;
 
         RESPONSES[ApiKeys.PRODUCE.id] = PRODUCE_RESPONSE;
         RESPONSES[ApiKeys.FETCH.id] = FETCH_RESPONSE;
@@ -1039,6 +1053,7 @@ public class Protocol {
         RESPONSES[ApiKeys.API_VERSIONS.id] = API_VERSIONS_RESPONSE;
         RESPONSES[ApiKeys.CREATE_TOPICS.id] = CREATE_TOPICS_RESPONSE;
         RESPONSES[ApiKeys.DELETE_TOPICS.id] = DELETE_TOPICS_RESPONSE;
+        RESPONSES[ApiKeys.LOG_END_OFFSET_FETCH.id] = LOG_END_OFFSET_FETCH_RESPONSE;
 
         /* set the minimum and maximum version of each api */
         for (ApiKeys api : ApiKeys.values()) {

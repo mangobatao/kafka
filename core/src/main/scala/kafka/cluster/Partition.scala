@@ -308,7 +308,7 @@ class Partition(val topic: String,
         // keep the current immutable replica list reference
         val curInSyncReplicas = inSyncReplicas
 
-        def numAcks = curInSyncReplicas.count { r =>
+        val numAcks = curInSyncReplicas.count { r =>
           if (!r.isLocal)
             if (r.logEndOffset.messageOffset >= requiredOffset) {
               trace(s"Replica ${r.brokerId} of ${topic}-${partitionId} received offset $requiredOffset")
@@ -333,8 +333,13 @@ class Partition(val topic: String,
             (true, Errors.NONE)
           else
             (true, Errors.NOT_ENOUGH_REPLICAS_AFTER_APPEND)
-        } else
-          (false, Errors.NONE)
+        } else {
+          val quorumAcks = leaderReplica.log.get.config.quorumAckReplicas
+          if (quorumAcks != -1 && quorumAcks <= numAcks)
+            (true, Errors.NONE)
+          else
+            (false, Errors.NONE)
+        }
       case None =>
         (false, Errors.NOT_LEADER_FOR_PARTITION)
     }

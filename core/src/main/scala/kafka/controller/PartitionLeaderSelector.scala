@@ -20,7 +20,7 @@ import kafka.admin.AdminUtils
 import kafka.api.LeaderAndIsr
 import kafka.log.LogConfig
 import kafka.utils.Logging
-import kafka.common.{LeaderElectionNotNeededException, TopicAndPartition, StateChangeFailedException, NoReplicaOnlineException}
+import kafka.common.{LeaderElectionNotNeededException, NoReplicaOnlineException, StateChangeFailedException, TopicAndPartition}
 import kafka.server.{ConfigType, KafkaConfig}
 
 trait PartitionLeaderSelector {
@@ -82,7 +82,7 @@ class OfflinePartitionLeaderSelector(controllerContext: ControllerContext, confi
             }
           } else {
             val liveReplicasInIsr = liveAssignedReplicas.filter(r => liveBrokersInIsr.contains(r))
-            val newLeader = liveReplicasInIsr.head
+            val newLeader = LeaderUtils.newLeader(controllerContext, config, topicAndPartition, liveReplicasInIsr)
             debug("Some broker in ISR is alive for %s. Select %d from ISR %s to be the leader."
               .format(topicAndPartition, newLeader, liveBrokersInIsr.mkString(",")))
             new LeaderAndIsr(newLeader, currentLeaderEpoch + 1, liveBrokersInIsr.toList, currentLeaderIsrZkPathVersion + 1)
@@ -205,5 +205,33 @@ class NoOpLeaderSelector(controllerContext: ControllerContext) extends Partition
   def selectLeader(topicAndPartition: TopicAndPartition, currentLeaderAndIsr: LeaderAndIsr): (LeaderAndIsr, Seq[Int]) = {
     warn("I should never have been asked to perform leader election, returning the current LeaderAndIsr and replica assignment.")
     (currentLeaderAndIsr, controllerContext.partitionReplicaAssignment(topicAndPartition))
+  }
+}
+
+/**
+ * Choose the new leader based on the LEO of the replica to avoid data loss.
+ * If there is anything wrong during fetching the LEO from the replicas, we will just return the head of the liveReplicasInIsr.
+ */
+object LeaderUtils extends Logging {
+  case class BrokerWithLEO(broker: Int, LEO: Long)
+
+  def newLeader(controllerContext: ControllerContext, config: KafkaConfig, topicAndPartition: TopicAndPartition, liveReplicasInIsr: Seq[Int]): Int = {
+    if (LogConfig.fromProps(config.originals, AdminUtils.fetchEntityConfig(controllerContext.zkUtils,
+      ConfigType.Topic, topicAndPartition.topic)).quorumAckReplicas != -1) {
+      // The sequential blocking request may take a lot of time.
+      try {
+        val brokerWithLEO = liveReplicasInIsr.map(
+          r => (new BrokerWithLEO(r, controllerContext.controllerChannelManager.blockingSendRequest(r, topicAndPartition.asTopicPartition).logEndOffset()))
+        )
+        brokerWithLEO.sortWith(_.LEO > _.LEO)
+        brokerWithLEO.head.broker
+      } catch {
+        case _: Throwable =>
+          warn("Failed to get the LEO from live brokers [%s]. There's potential data loss.".format(liveReplicasInIsr.mkString(",")))
+          liveReplicasInIsr.head
+      }
+    } else {
+      liveReplicasInIsr.head
+    }
   }
 }

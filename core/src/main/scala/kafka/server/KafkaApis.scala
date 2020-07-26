@@ -98,6 +98,7 @@ class KafkaApis(val requestChannel: RequestChannel,
         case ApiKeys.API_VERSIONS => handleApiVersionsRequest(request)
         case ApiKeys.CREATE_TOPICS => handleCreateTopicsRequest(request)
         case ApiKeys.DELETE_TOPICS => handleDeleteTopicsRequest(request)
+        case ApiKeys.LOG_END_OFFSET_FETCH => handleLogEndOffsetFetchRequest(request)
         case requestId => throw new KafkaException("Unknown api code " + requestId)
       }
     } catch {
@@ -1247,6 +1248,23 @@ class KafkaApis(val requestChannel: RequestChannel,
         )
       }
     }
+  }
+
+  def handleLogEndOffsetFetchRequest(request: RequestChannel.Request): Unit = {
+    val logEndOffsetFetchRequest = request.body.asInstanceOf[LogEndOffsetFetchRequest]
+
+    val response =
+      if (authorize(request.session, ClusterAction, Resource.ClusterResource)) {
+        val topicPartition = new TopicPartition(logEndOffsetFetchRequest.topic, logEndOffsetFetchRequest.partition)
+        replicaManager.logManager.getLog((topicPartition)) match {
+          case Some(log) => new LogEndOffsetFetchResponse(log.logEndOffset, Errors.NONE)
+          case None => new LogEndOffsetFetchResponse(-1L, Errors.UNKNOWN_TOPIC_OR_PARTITION)
+        }
+      } else {
+        new LogEndOffsetFetchResponse(-1L, Errors.CLUSTER_AUTHORIZATION_FAILED)
+      }
+
+    requestChannel.sendResponse(new RequestChannel.Response(request, response))
   }
 
   def authorizeClusterAction(request: RequestChannel.Request): Unit = {

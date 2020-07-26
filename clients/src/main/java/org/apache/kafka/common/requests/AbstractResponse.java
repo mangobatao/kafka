@@ -77,6 +77,8 @@ public abstract class AbstractResponse extends AbstractRequestResponse {
                 return new CreateTopicsResponse(struct);
             case DELETE_TOPICS:
                 return new DeleteTopicsResponse(struct);
+            case LOG_END_OFFSET_FETCH:
+                return new LogEndOffsetFetchResponse(struct);
             default:
                 throw new AssertionError(String.format("ApiKey %s is not currently handled in `getResponse`, the " +
                         "code should be updated to do so.", apiKey));

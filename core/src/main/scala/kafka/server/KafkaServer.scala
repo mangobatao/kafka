@@ -71,6 +71,7 @@ object KafkaServer {
     logProps.put(LogConfig.MinCleanableDirtyRatioProp, kafkaConfig.logCleanerMinCleanRatio)
     logProps.put(LogConfig.CleanupPolicyProp, kafkaConfig.logCleanupPolicy)
     logProps.put(LogConfig.MinInSyncReplicasProp, kafkaConfig.minInSyncReplicas)
+    logProps.put(LogConfig.QuorumAckReplicasProp, kafkaConfig.quorumAckReplicas)
     logProps.put(LogConfig.CompressionTypeProp, kafkaConfig.compressionType)
     logProps.put(LogConfig.UncleanLeaderElectionEnableProp, kafkaConfig.uncleanLeaderElectionEnable)
     logProps.put(LogConfig.PreAllocateEnableProp, kafkaConfig.logPreAllocateEnable)

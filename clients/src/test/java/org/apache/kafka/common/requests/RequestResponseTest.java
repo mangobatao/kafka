@@ -126,6 +126,8 @@ public class RequestResponseTest {
         checkSerialization(createDeleteTopicsRequest());
         checkSerialization(createDeleteTopicsRequest().getErrorResponse(new UnknownServerException()), null);
         checkSerialization(createDeleteTopicsResponse(), null);
+        checkSerialization(createLogEndOffsetFetchRequest());
+        checkSerialization(createLogEndOffsetFetchResponse(), null);
         checkOlderFetchVersions();
         checkSerialization(createMetadataResponse(0), 0);
         checkSerialization(createMetadataResponse(1), 1);
@@ -647,6 +649,14 @@ public class RequestResponseTest {
         errors.put("t1", Errors.INVALID_TOPIC_EXCEPTION);
         errors.put("t2", Errors.TOPIC_AUTHORIZATION_FAILED);
         return new DeleteTopicsResponse(errors);
+    }
+
+    private LogEndOffsetFetchRequest createLogEndOffsetFetchRequest() {
+        return new LogEndOffsetFetchRequest.Builder(1, 1, "topic", 1).build();
+    }
+
+    private LogEndOffsetFetchResponse createLogEndOffsetFetchResponse() {
+        return new LogEndOffsetFetchResponse(-1L, Errors.INVALID_TOPIC_EXCEPTION);
     }
 
     private static class ByteBufferChannel implements GatheringByteChannel {

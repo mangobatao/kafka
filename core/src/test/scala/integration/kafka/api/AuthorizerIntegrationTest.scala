@@ -31,14 +31,13 @@ import org.apache.kafka.common.protocol.{ApiKeys, Errors, SecurityProtocol}
 import org.apache.kafka.common.requests._
 import CreateTopicsRequest.TopicDetails
 import org.apache.kafka.common.security.auth.KafkaPrincipal
-import org.apache.kafka.common.{Node, TopicPartition, requests}
+import org.apache.kafka.common.{KafkaException, Node, TopicPartition, protocol, requests}
 import org.junit.Assert._
 import org.junit.{After, Assert, Before, Test}
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.Buffer
-import org.apache.kafka.common.KafkaException
+
 import kafka.admin.AdminUtils
 import kafka.network.SocketServer
 import org.apache.kafka.common.network.ListenerName
@@ -264,6 +263,10 @@ class AuthorizerIntegrationTest extends BaseRequestTest {
     new DeleteTopicsRequest.Builder(Set(deleteTopic).asJava, 5000).build()
   }
 
+  private def logEndOffsetFetchRequest = {
+    new LogEndOffsetFetchRequest.Builder(brokerId, Int.MaxValue, "topic", 1).build()
+  }
+
   @Test
   def testAuthorizationWithTopicExisting() {
     val requestKeyToRequest = mutable.LinkedHashMap[ApiKeys, AbstractRequest](
@@ -283,7 +286,8 @@ class AuthorizerIntegrationTest extends BaseRequestTest {
       ApiKeys.STOP_REPLICA -> createStopReplicaRequest,
       ApiKeys.CONTROLLED_SHUTDOWN_KEY -> createControlledShutdownRequest,
       ApiKeys.CREATE_TOPICS -> createTopicsRequest,
-      ApiKeys.DELETE_TOPICS -> deleteTopicsRequest
+      ApiKeys.DELETE_TOPICS -> deleteTopicsRequest,
+      ApiKeys.LOG_END_OFFSET_FETCH -> logEndOffsetFetchRequest
     )
 
     for ((key, request) <- requestKeyToRequest) {

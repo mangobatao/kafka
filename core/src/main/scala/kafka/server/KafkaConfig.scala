@@ -109,6 +109,7 @@ object Defaults {
   val NumRecoveryThreadsPerDataDir = 1
   val AutoCreateTopicsEnable = true
   val MinInSyncReplicas = 1
+  val QuorumAckReplicas = -1
 
   /** ********* Replication configuration ***********/
   val ControllerSocketTimeoutMs = RequestTimeoutMs
@@ -281,6 +282,7 @@ object KafkaConfig {
   val NumRecoveryThreadsPerDataDirProp = "num.recovery.threads.per.data.dir"
   val AutoCreateTopicsEnableProp = "auto.create.topics.enable"
   val MinInSyncReplicasProp = "min.insync.replicas"
+  val QuorumAckReplicasProp = "quorum.ack.replicas"
   val CreateTopicPolicyClassNameProp = "create.topic.policy.class.name"
   /** ********* Replication configuration ***********/
   val ControllerSocketTimeoutMsProp = "controller.socket.timeout.ms"
@@ -490,6 +492,11 @@ object KafkaConfig {
     "create a topic with a replication factor of 3, set min.insync.replicas to 2, and " +
     "produce with acks of \"all\". This will ensure that the producer raises an exception " +
     "if a majority of replicas do not receive a write."
+  val QuorumAckReplicasDoc = "When a producer sets acks to \"all\" (or \"-1\"), " +
+    "quorum.ack.replicas specifies the minimum number of replicas that must acknowledge " +
+    "a write for the write to be considered successful, this config is set >= min.insync.replicas " +
+    " and <= replicas to improve the p999 latency, a write can be acknowledged once it got committed " +
+    " to a subset of replicas."
 
   val CreateTopicPolicyClassNameDoc = "The create topic policy class that should be used for validation. The class should " +
     "implement the <code>org.apache.kafka.server.policy.CreateTopicPolicy</code> interface."
@@ -690,6 +697,7 @@ object KafkaConfig {
       .define(NumRecoveryThreadsPerDataDirProp, INT, Defaults.NumRecoveryThreadsPerDataDir, atLeast(1), HIGH, NumRecoveryThreadsPerDataDirDoc)
       .define(AutoCreateTopicsEnableProp, BOOLEAN, Defaults.AutoCreateTopicsEnable, HIGH, AutoCreateTopicsEnableDoc)
       .define(MinInSyncReplicasProp, INT, Defaults.MinInSyncReplicas, atLeast(1), HIGH, MinInSyncReplicasDoc)
+      .define(QuorumAckReplicasProp, INT, Defaults.QuorumAckReplicas, HIGH, QuorumAckReplicasDoc)
       .define(LogMessageFormatVersionProp, STRING, Defaults.LogMessageFormatVersion, MEDIUM, LogMessageFormatVersionDoc)
       .define(LogMessageTimestampTypeProp, STRING, Defaults.LogMessageTimestampType, in("CreateTime", "LogAppendTime"), MEDIUM, LogMessageTimestampTypeDoc)
       .define(LogMessageTimestampDifferenceMaxMsProp, LONG, Defaults.LogMessageTimestampDifferenceMaxMs, atLeast(0), MEDIUM, LogMessageTimestampDifferenceMaxMsDoc)
@@ -884,6 +892,7 @@ class KafkaConfig(val props: java.util.Map[_, _], doLog: Boolean) extends Abstra
   val logFlushIntervalMs: java.lang.Long = Option(getLong(KafkaConfig.LogFlushIntervalMsProp)).getOrElse(getLong(KafkaConfig.LogFlushSchedulerIntervalMsProp))
   val logRetentionTimeMillis = getLogRetentionTimeMillis
   val minInSyncReplicas = getInt(KafkaConfig.MinInSyncReplicasProp)
+  val quorumAckReplicas = getInt(KafkaConfig.QuorumAckReplicasProp)
   val logPreAllocateEnable: java.lang.Boolean = getBoolean(KafkaConfig.LogPreAllocateProp)
   // We keep the user-provided String as `ApiVersion.apply` can choose a slightly different version (eg if `0.10.0`
   // is passed, `0.10.0-IV0` may be picked)

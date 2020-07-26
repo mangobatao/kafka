@@ -33,7 +33,6 @@ import org.apache.kafka.common.requests.{UpdateMetadataRequest, _}
 import org.apache.kafka.common.requests.UpdateMetadataRequest.EndPoint
 import org.apache.kafka.common.utils.Time
 import org.apache.kafka.common.{Node, TopicPartition}
-
 import scala.collection.JavaConverters._
 import scala.collection.{Set, mutable}
 import scala.collection.mutable.HashMap
@@ -54,6 +53,19 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
   def shutdown() = {
     brokerLock synchronized {
       brokerStateInfo.values.foreach(removeExistingBroker)
+    }
+  }
+
+  def blockingSendRequest(brokerId: Int, topicPartition: TopicPartition):
+    LogEndOffsetFetchResponse = {
+    brokerLock synchronized {
+      val stateInfoOpt = brokerStateInfo.get(brokerId)
+      stateInfoOpt match {
+        case Some(stateInfo) =>
+          stateInfo.requestSendThread.blockingSend(topicPartition)
+        case None =>
+          throw new KafkaException("Broker %d is offline.".format(brokerId))
+      }
     }
   }
 
@@ -171,6 +183,59 @@ class RequestSendThread(val controllerId: Int,
   private val lock = new Object()
   private val stateChangeLogger = KafkaController.stateChangeLogger
   private val socketTimeoutMs = config.controllerSocketTimeoutMs
+
+  def blockingSend(topicPartition: TopicPartition):
+    LogEndOffsetFetchResponse = {
+    def backoff(): Unit = CoreUtils.swallowTrace(Thread.sleep(100))
+
+    import NetworkClientBlockingOps._
+    var clientResponse: ClientResponse = null
+    try {
+      lock synchronized {
+        var isSendSuccessful = false
+        val requestBuilder = new LogEndOffsetFetchRequest.Builder(controllerId, controllerContext.epoch, topicPartition.topic, topicPartition.partition)
+        while (isRunning.get() && !isSendSuccessful) {
+          // if a broker goes down for a long time, then at some point the controller's zookeeper listener will trigger a
+          // removeBroker which will invoke shutdown() on this thread. At that point, we will stop retrying.
+          try {
+            if (!brokerReady()) {
+              isSendSuccessful = false
+              backoff()
+            }
+            else {
+              val clientRequest = networkClient.newClientRequest(brokerNode.idString, requestBuilder,
+                time.milliseconds(), true)
+              clientResponse = networkClient.blockingSendAndReceive(clientRequest)(time)
+              isSendSuccessful = true
+            }
+          } catch {
+            case e: Throwable => // if the send was not successful, reconnect to broker and resend the message
+              warn(("Controller %d epoch %d fails to send request %s to broker %s. " +
+                "Reconnecting to broker.").format(controllerId, controllerContext.epoch,
+                requestBuilder.toString, brokerNode.toString), e)
+              networkClient.close(brokerNode.idString)
+              isSendSuccessful = false
+              backoff()
+          }
+        }
+        if (clientResponse != null) {
+          val response = clientResponse.responseBody()
+          stateChangeLogger.trace("Controller %d epoch %d received response %s for a request sent to broker %s"
+            .format(controllerId, controllerContext.epoch, response.toString, brokerNode.toString))
+
+          response.asInstanceOf[LogEndOffsetFetchResponse]
+        } else {
+          throw new KafkaException("")
+        }
+      }
+    } catch {
+      case e: Throwable =>
+        error("Controller %d fails to send a LEO fetch request to broker %s".format(controllerId, brokerNode.toString), e)
+        // If there is any socket error (eg, socket timeout), the connection is no longer usable and needs to be recreated.
+        networkClient.close(brokerNode.idString)
+        throw new KafkaException("Controller %d fails to send a LEO fetch request to broker %s".format(controllerId, brokerNode.toString))
+    }
+  }
 
   override def doWork(): Unit = {
 
